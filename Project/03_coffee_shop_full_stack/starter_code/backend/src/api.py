@@ -37,11 +37,10 @@ def getDrinks():
         drinks = Drink.query.all()
         if start > len(drinks):
             abort(404)
-        formatted_drinks = [drink.long() for drink in drinks]
+        formatted_drinks = [drink.short() for drink in drinks]
         return jsonify({
             'sucess': True,
-            'drinks': formatted_drinks,
-            'total_drinks': len(formatted_drinks)
+            'drinks': formatted_drinks
             })    
     except:
         db.session.rollback()
@@ -59,8 +58,8 @@ def getDrinks():
         or appropriate status code indicating reason for failure
 '''
 @app.route('/drinks-detail')
-@requires_auth('get:drink-detail')
-def getDrinksDetails():
+@requires_auth('get:drinks-detail')
+def getDrinksDetails(jwt):
     try:
         page = request.args.get('page', 1, type=int)
         start = (page - 1) * 10
@@ -71,8 +70,7 @@ def getDrinksDetails():
         formatted_drinks = [drink.long() for drink in drinks]
         return jsonify({
             'sucess': True,
-            'drinks': formatted_drinks,
-            'total_drinks': len(formatted_drinks)
+            'drinks': formatted_drinks
             })
     except:
         db.session.rollback()
@@ -91,16 +89,20 @@ def getDrinksDetails():
         or appropriate status code indicating reason for failure
 '''
 @app.route('/drinks', methods = ["POST"])
-# @requires_auth('post:drinks')
-def saveDrinks():
+@requires_auth('post:drinks')
+def saveDrinks(jwt):
     try:
         body = request.get_json()
-        new_title = body.get('title', None)
-        new_recipe = body.get('recipe', None)
+        new_title = body['title']
+        new_recipe = json.dumps(body['recipe'])
 
-        new_drink = Drink(title=new_title, recipe=new_recipe)
-        new_drink.insert()
-        drink = [new_drink.long()]
+        print(new_recipe)
+        drinks = Drink(
+        title=new_title,
+        recipe=new_recipe
+        )
+        drinks.insert()
+        drink = [drinks.long()]
         return jsonify({
             "success": True,
             "drinks": drink
@@ -123,9 +125,9 @@ def saveDrinks():
     returns status code 200 and json {"success": True, "drinks": drink} where drink an array containing only the updated drink
         or appropriate status code indicating reason for failure
 '''
-@app.route('/drinks/<id>', methods = ["PATCH"])
+@app.route('/drinks/<int:id>', methods = ["PATCH"])
 @requires_auth('patch:drinks')
-def updateDrinks():
+def updateDrinks(jwt,id):
     try:
         body = request.get_json()
         drink = Drink.query.filter(Drink.id == id).one_or_none()
@@ -134,9 +136,10 @@ def updateDrinks():
             abort(404)
 
         drink.title = body['title']
-        drink.recipe = body['recipe']
-
-        drink.update()
+        drink.recipe = json.dumps(body['recipe'])
+        
+        updatedrinks = drink.update()
+        print(updatedrinks)
         return jsonify({
             "success": True,
             "drinks": [drink.long()]
@@ -158,9 +161,9 @@ def updateDrinks():
     returns status code 200 and json {"success": True, "delete": id} where id is the id of the deleted record
         or appropriate status code indicating reason for failure
 '''
-@app.route('/drinks/<id>', methods = ["DELETE"])
+@app.route('/drinks/<int:id>', methods = ["DELETE"])
 @requires_auth('delete:drinks')
-def deleteDrinks():
+def deleteDrinks(jwt, id):
     try:
         drink = Drink.query.filter(Drink.id == id).one_or_none()
 
@@ -246,3 +249,9 @@ def unprocessable(error):
 @TODO implement error handler for AuthError
     error handler should conform to general task above
 '''
+@app.errorhandler(AuthError)
+def process_AuthError(error):
+    response = jsonify(error.error)
+    response.status_code = error.status_code
+
+    return response

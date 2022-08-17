@@ -31,15 +31,24 @@ class AuthError(Exception):
 '''
 def get_token_auth_header():
     if 'Authorization' not in request.headers:
-        abort(401)
+        raise AuthError({
+            'code': 'Authorization_header_missng',
+            'description': 'Authorization header is missing'
+        }, 401)
  
     auth_header = request.headers['Authorization']
     header_parts = auth_header.split(' ')
 
     if len(header_parts) != 2:
-        abort(401)
+        raise AuthError({
+            'code': 'invalid_header',
+            'description': 'Authorization header must be bearer token'
+        }, 401)
     elif header_parts[0].lower() != 'bearer':
-        abort(401) 
+        raise AuthError({
+            'code': 'invalid_header',
+            'description': 'Authorization header must be bearer token'
+        }, 401)
     return header_parts[1]
 
 '''
@@ -55,10 +64,16 @@ def get_token_auth_header():
 '''
 def check_permissions(permission, payload):
     if 'permissions' not in payload:
-        abort(400)
+        raise AuthError({
+            'code': 'invalid_claims',
+            'description': 'permissions not included in the token'
+        }, 400)
 
     if permission not in payload['permissions']:
-        abort(403)
+        raise AuthError({
+            'code': 'Unauthorized',
+            'description': 'permissions not found'
+        }, 403)
     return True
 
 '''
